@@ -8,15 +8,6 @@ def main(argv):
     load_csv(filename)
 
 
-class EventPoint:
-    position: float
-    key: None
-
-    def __init__(self, position, key):
-        self.position = position
-        self.key = key
-
-
 def sweep_line(epFunc, eventFunc):
     event_points = []
     for position, key in epFunc():
@@ -35,15 +26,12 @@ def sweep_line(epFunc, eventFunc):
 
 
 def eventPoints(df):
-    eventPoints = []
     for index, row in df.iterrows():
-        eventPoints.append((row["tStart"], str(index)))
-        eventPoints.append((row["tStop"], str(index)))
-
-    return eventPoints
+        yield row["tStart"], str(index) + str(row["mOverZ"])
+        yield row["tStop"], str(index) + str(row["mOverZ"])
 
 
-def load_csv(filename):
+def load_csv(filename: str):
     df = pd.read_csv(filename, sep=",", header=1,
                      names=[
                          "Compound", "Formula", "mOverZ", "z", "tStart",
@@ -52,10 +40,11 @@ def load_csv(filename):
                          "Polarity"]
                      )
 
-    def handleEventPoint(keys):
-        print(len(keys))
+    def handle_event_point(keys: set):
+        print(len(keys));
+        #return lambda x: max(x, len(keys))
 
-    sweep_line(lambda: eventPoints(df), lambda x: handleEventPoint(x))
+    result = sweep_line(lambda: eventPoints(df), lambda x: handle_event_point(x))
 
 
 if __name__ == '__main__':
