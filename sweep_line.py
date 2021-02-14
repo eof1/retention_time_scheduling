@@ -1,15 +1,17 @@
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Hashable, Callable
 
 
-def sweep_line(event_points: Iterable[Tuple[float, str]], handle_event):
-    current_keys = set()
-    accumulated_result = handle_event(current_keys, 0)
-    for _, key in sorted(event_points):
-        if key in current_keys:
-            current_keys.remove(key)
+def sweep_line(event_points: Iterable[Tuple[float, Hashable]], handle_event: Callable[[float, set, any], any], seed: any):
+    current_items = set()
+    accumulated_result = seed
+    for position, item in sorted(event_points):
+        if item in current_items:
+            current_items.remove(item)
         else:
-            current_keys.add(key)
+            current_items.add(item)
 
-        accumulated_result = handle_event(current_keys, accumulated_result)
+        accumulated_result = handle_event(position, current_items, accumulated_result)
 
     return accumulated_result
+
+
