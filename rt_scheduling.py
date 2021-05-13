@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import plotly.graph_objects as go
 import sys
@@ -7,11 +8,14 @@ from plotly.graph_objs import Figure
 from sweep_line import sweep_line
 from typing import Tuple, Iterable
 
-
 def main(argv):
-    filename = str(argv[0])
+    parser = argparse.ArgumentParser(description="Compute retention time scheduling", allow_abbrev=True)
+    parser.add_argument("inputfile", metavar="input", help="Input filename");
+    parser.add_argument("-o", "-output", dest="output", help="Output filename, e.g. rt_times.pdf (Requires: psutil, requests, plotly-orca");
 
-    df = pd.read_csv(filename, sep=",", header=1,
+    args = parser.parse_args()
+
+    df = pd.read_csv(args.inputfile, sep=",", header=1,
                      names=[
                          "Compound", "Formula", "mOverZ", "z", "tStart",
                          "tStop",
@@ -69,6 +73,9 @@ def main(argv):
     fig = create_window_plot(df, "tStart", "tStop", "mOverZ")
     fig = add_window_highlight(fig, result.max_windows)
     fig.show()
+
+    if args.output:
+        fig.write_image(args.output)
 
 
 def create_window_plot(df: pd.DataFrame, start_col: str, stop_col: str, y_col: str):
