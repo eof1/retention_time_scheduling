@@ -1,8 +1,11 @@
-from collections import namedtuple
-import sys
-from sweep_line import sweep_line
 import pandas as pd
 import plotly.graph_objects as go
+import sys
+
+from collections import namedtuple
+from plotly.graph_objs import Figure
+from sweep_line import sweep_line
+from typing import Tuple, Iterable
 
 
 def main(argv):
@@ -19,9 +22,9 @@ def main(argv):
     def find_maximum(_: float, keys: set, accumulated_result: any):
         return max(accumulated_result, len(keys))
 
-    LargestWindowsResult = namedtuple('LargestWindowsResult', 'last_count max_count current_window_start max_windows')
+    OverlappingWindowsResult = namedtuple('OverlappingWindowsResult', 'last_count max_count current_window_start max_windows')
 
-    def find_largest_windows(position: float, keys: set, accumulated_result: any) -> any:
+    def find_maximum_overlap(position: float, keys: set, accumulated_result: any) -> any:
         current_count = len(keys)
 
         is_rising = current_count > accumulated_result.last_count
@@ -42,7 +45,7 @@ def main(argv):
             max_windows.append((current_window_start, position))
             current_window_start = None
 
-        return LargestWindowsResult(current_count, current_max, current_window_start, max_windows)
+        return OverlappingWindowsResult(current_count, current_max, current_window_start, max_windows)
 
     def unique_key(index, row) -> str:
         return str(index) + str(row["mOverZ"])
@@ -56,32 +59,19 @@ def main(argv):
     # result = sweep_line(event_points(df), find_maximum, 0)
     # print(result)
 
-    empty_result = LargestWindowsResult(0, 0, None, set())
-    result = sweep_line(event_points(df), find_largest_windows, empty_result)
-    max_windows = result.max_windows
-    print(max_windows)
+    empty_result = OverlappingWindowsResult(0, 0, None, set())
+    result = sweep_line(event_points(df), find_maximum_overlap, empty_result)
 
-    plot(df, max_windows)
+    print("Found maximum of", result.max_count, "overlapping windows:")
+    for start, end in result.max_windows:
+        print("From", start, "to", end)
+
+    fig = create_window_plot(df, "tStart", "tStop", "mOverZ")
+    fig = add_window_highlight(fig, result.max_windows)
+    fig.show()
 
 
-def plot(df: pd.DataFrame, maximum_windows) -> None:
-    highlights = []
-    for start, end in maximum_windows:
-        highlights.append({
-            'type': 'rect',
-            'xref': 'x',
-            'yref': 'paper',
-            'x0': start,
-            'y0': 0,
-            'x1': end,
-            'y1': 1000,
-            'fillcolor': '#d3d3d3',
-            'opacity': 0.2,
-            'line': {
-                'width': 0,
-            }
-        })
-
+def create_window_plot(df: pd.DataFrame, start_col: str, stop_col: str, y_col: str):
     fig = go.Figure()
     axis_layout = dict(
         showline=True,
@@ -98,20 +88,39 @@ def plot(df: pd.DataFrame, maximum_windows) -> None:
     fig.update_layout(
         title="Retention time window overlaps",
         plot_bgcolor="white",
-        yaxis_title="m/z",
+        yaxis_title=y_col,
         xaxis_title="time (min)",
         xaxis=axis_layout,
         yaxis=axis_layout,
-        shapes=highlights,
     )
-    for index, row in df.iterrows():
-        fig.add_trace(
-            go.Scatter(x=[row["tStart"], row["tStop"]], y=[row["mOverZ"], row["mOverZ"]], mode="lines+markers",
-                       name=str(index)))
 
-    fig.add_area()
+    for i in df.index:
+        x_values = [df.loc[i, start_col], df.loc[i, stop_col]]
+        y_values = [df.loc[i, y_col], df.loc[i, y_col]]
+        fig.add_trace(go.Scatter(x=x_values, y=y_values, mode="lines+markers", name=str(i)))
 
-    fig.show()
+    return fig
+
+
+def add_window_highlight(fig: Figure, max_windows: Iterable[Tuple[float, float]]) -> Figure:
+    highlights = []
+    for start, end in max_windows:
+        highlights.append({
+            'type': 'rect',
+            'xref': 'x',
+            'yref': 'paper',
+            'x0': start,
+            'y0': 0,
+            'x1': end,
+            'y1': 1000,
+            'fillcolor': '#d3d3d3',
+            'opacity': 0.2,
+            'line': {
+                'width': 0,
+            }
+        })
+    fig.update_layout(shapes=highlights)
+    return fig
 
 
 if __name__ == '__main__':
