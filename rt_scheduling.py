@@ -10,18 +10,19 @@ from typing import Tuple, Iterable
 
 def main(argv):
     parser = argparse.ArgumentParser(description="Compute retention time scheduling", allow_abbrev=True)
-    parser.add_argument("inputfile", metavar="input", help="Input filename");
-    parser.add_argument("-o", "-output", dest="output", help="Output filename, e.g. rt_times.pdf (Requires: psutil, requests, plotly-orca");
+    parser.add_argument("inputfile", metavar="input", help="Input filename with columns: Compound, m/z, t start (min), t stop (min)")
+    parser.add_argument("-o", "-output", dest="output", help="Output filename, e.g. rt_times.pdf (Requires: psutil, requests, plotly-orca)")
+    parser.add_argument("-start", dest="start", default="t start (min)", help="Window start time column")
+    parser.add_argument("-stop", dest="stop", default="t stop (min)", help="Window end time column")
+    parser.add_argument("-name", dest="name", default="Compound", help="Name column")
+    parser.add_argument("-mz", dest="mOverZ", default="m/z", help="mass to charge ration column")
 
     args = parser.parse_args()
 
-    df = pd.read_csv(args.inputfile, sep=",", header=1,
-                     names=[
-                         "Compound", "Formula", "mOverZ", "z", "tStart",
-                         "tStop",
-                         "CollisionEnergy",
-                         "Polarity"]
-                     )
+    df = pd.read_csv(args.inputfile, sep=',',
+                     usecols=[args.name, args.mOverZ, args.start, args.stop],
+                     index_col=args.name
+                   )
 
     def find_maximum(_: float, keys: set, accumulated_result: any):
         return max(accumulated_result, len(keys))
@@ -52,13 +53,13 @@ def main(argv):
         return OverlappingWindowsResult(current_count, current_max, current_window_start, max_windows)
 
     def unique_key(index, row) -> str:
-        return str(index) + str(row["mOverZ"])
+        return str(index) + str(row[args.mOverZ])
 
     def event_points(data_frame: pd.DataFrame):
         for index, row in data_frame.iterrows():
             k = unique_key(index, row)
-            yield row["tStart"], k
-            yield row["tStop"], k
+            yield row[args.start], k
+            yield row[args.stop], k
 
     # result = sweep_line(event_points(df), find_maximum, 0)
     # print(result)
@@ -70,7 +71,7 @@ def main(argv):
     for start, end in result.max_windows:
         print("From", start, "to", end)
 
-    fig = create_window_plot(df, "tStart", "tStop", "mOverZ")
+    fig = create_window_plot(df, args.start, args.stop, args.mOverZ)
     fig = add_window_highlight(fig, result.max_windows)
     fig.show()
 
